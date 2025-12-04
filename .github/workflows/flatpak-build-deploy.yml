@@ -12,11 +12,11 @@ on:
 
 env:
   # Application id of the app, should be same as id used in flatpak manifest and MetaInfo
-  APP_ID: xyz. fontra.FontraPak
+  APP_ID: xyz.fontra.FontraPak
   # Location of the flatpak manifest, root of git repository
   MANIFEST_PATH: ${{ github.workspace }}/${{ env.APP_ID }}. yml
   # Name of flatpak bundle
-  BUNDLE: "${{ env.APP_ID }}. flatpak"
+  BUNDLE: "${{ env.APP_ID }}.flatpak"
   # Docker image to use
   DOCKER_IMAGE: "ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08"
 
@@ -115,7 +115,7 @@ jobs:
           flatpak build-bundle \
             --gpg-sign=${GPG_KEY_ID} \
             repo \
-            ${{ env. BUNDLE }} \
+            ${{ env.BUNDLE }} \
             --runtime-repo=${RUNTIME_REPO} \
             ${{ env.APP_ID }} \
             ${BRANCH}
@@ -149,7 +149,7 @@ jobs:
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps. deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
