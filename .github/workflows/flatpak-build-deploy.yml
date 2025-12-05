@@ -3,21 +3,14 @@ name: Flatpak Build and Deploy
 on:
   push:
     branches:
-      - main  # Adjust to your default branch
+      - main
   pull_request:
   workflow_dispatch:
   schedule:
-    # Run on a schedule (e.g., daily at 2 AM UTC)
     - cron: '0 2 * * *'
 
 env:
-  # Application id of the app, should be same as id used in flatpak manifest and MetaInfo
   APP_ID: xyz.fontra.FontraPak
-  # Location of the flatpak manifest, root of git repository
-  MANIFEST_PATH: ${{ github.workspace }}/${{ env.APP_ID }}.yml
-  # Name of flatpak bundle
-  BUNDLE: "${{ env.APP_ID }}.flatpak"
-  # Docker image to use
   DOCKER_IMAGE: "ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08"
 
 jobs:
@@ -42,17 +35,17 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Check for external data updates
-        run: /app/flatpak-external-data-checker --update --commit-only ${{ env.MANIFEST_PATH }}
+        run: /app/flatpak-external-data-checker --update --commit-only ${{ github.workspace }}/${{ env.APP_ID }}.yml
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: update external data sources"
           title: "chore: update external data sources"
           body: "Automated update of external data sources from flatpak-external-data-checker"
           branch: "update-sources"
-          base: ${{ github.ref }}
+          base: ${{ github.ref_name }}
 
   update-release:
     name: Update to Latest FontraPak Release
@@ -66,7 +59,6 @@ jobs:
       - name: Get latest release info
         id: latest-release
         run: |
-          # Fetch latest release info from fontra-pak
           RELEASE_DATA=$(curl -s https://api.github.com/repos/fontra/fontra-pak/releases/latest)
           VERSION=$(echo "$RELEASE_DATA" | jq -r .tag_name)
           ASSET_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name=="FontraPakUbuntu.tgz") | .browser_download_url')
@@ -79,36 +71,25 @@ jobs:
       - name: Download and calculate SHA256
         id: calculate-sha
         run: |
-          # Download the asset
           curl -L -o FontraPakUbuntu.tgz "${{ steps.latest-release.outputs.asset_url }}"
-          
-          # Calculate SHA256
           SHA256=$(sha256sum FontraPakUbuntu.tgz | awk '{print $1}')
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
           echo "SHA256: $SHA256"
-          
           rm FontraPakUbuntu.tgz
       
       - name: Update manifest file
         run: |
           VERSION="${{ steps.latest-release.outputs.version }}"
           SHA256="${{ steps.calculate-sha.outputs.sha256 }}"
-          
-          # Update URL in manifest
-          sed -i "s|url: https://github.com/fontra/fontra-pak/releases/download/[^/]*/FontraPakUbuntu.tgz|url: https://github.com/fontra/fontra-pak/releases/download/${VERSION}/FontraPakUbuntu.tgz|" xyz.fontra.FontraPak.yml
-          
-          # Update SHA256 in manifest
-          sed -i "s|sha256: .*|sha256: ${SHA256}|" xyz.fontra.FontraPak.yml
+          sed -i "s|url: https://github.com/fontra/fontra-pak/releases/download/[^/]*/FontraPakUbuntu.tgz|url: https://github.com/fontra/fontra-pak/releases/download/${VERSION}/FontraPakUbuntu.tgz|" ${{ env.APP_ID }}.yml
+          sed -i "s|sha256: .*|sha256: ${SHA256}|" ${{ env.APP_ID }}.yml
       
       - name: Update metainfo.xml with new release
         run: |
           VERSION="${{ steps.latest-release.outputs.version }}"
-          # Remove 'v' prefix if present
           VERSION_CLEAN=$(echo $VERSION | sed 's/^v//')
           DATE=$(date +%Y-%m-%d)
-          
-          # Insert new release entry after <releases> tag
-          sed -i "/<releases>/a\    <release version=\"${VERSION_CLEAN}\" date=\"${DATE}\"/>" xyz.fontra.FontraPak.metainfo.xml
+          sed -i "/<releases>/a\    <release version=\"${VERSION_CLEAN}\" date=\"${DATE}\"/>" ${{ env.APP_ID }}.metainfo.xml
       
       - name: Commit and push changes
         run: |
@@ -120,7 +101,7 @@ jobs:
             exit 0
           fi
           
-          git add xyz.fontra.FontraPak.yml xyz.fontra.FontraPak.metainfo.xml
+          git add ${{ env.APP_ID }}.yml ${{ env.APP_ID }}.metainfo.xml
           git commit -m "chore: update to FontraPak ${{ steps.latest-release.outputs.version }}"
           git push
 
@@ -129,7 +110,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
     container:
-      image: ${{ env.DOCKER_IMAGE }}
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
       options: --privileged
     env:
       RUNTIME_REPO: "https://flathub.org/repo/flathub.flatpakrepo"
@@ -144,7 +125,6 @@ jobs:
           cat <<EOF > /etc/passwd
           root:x:0:0:root:/root:/bin/bash
           EOF
-
           cat <<EOF > /etc/group
           root:x:0:
           EOF
@@ -155,11 +135,12 @@ jobs:
 
       - name: Set up GPG signing
         run: |
-          gpg --list-keys --with-keygrip
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
           echo "allow-preset-passphrase" >> ~/.gnupg/gpg-agent.conf
           gpg-connect-agent reloadagent /bye
-          echo "${{ secrets.GPG_PASSPHRASE }}" | /usr/libexec/gpg-preset-passphrase --preset ${{ secrets.GPG_KEY_GREP }}
-          gpg --import --batch ${{ secrets.GPG_PRIVATE_KEY }}
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | base64 -d | gpg --batch --import
+          echo "${{ secrets.GPG_PASSPHRASE }}" | /usr/libexec/gpg-preset-passphrase --preset ${{ secrets.GPG_KEY_GRIP }}
 
       - name: Build Flatpak
         env:
@@ -185,7 +166,7 @@ jobs:
           flatpak build-bundle \
             --gpg-sign=${GPG_KEY_ID} \
             repo \
-            ${{ env.BUNDLE }} \
+            ${{ env.APP_ID }}.flatpak \
             --runtime-repo=${RUNTIME_REPO} \
             ${{ env.APP_ID }} \
             ${BRANCH}
@@ -204,7 +185,7 @@ jobs:
         with:
           name: flatpak-build
           path: |
-            ${{ env.BUNDLE }}
+            ${{ env.APP_ID }}.flatpak
             repo/
           retention-days: 7
 
@@ -227,24 +208,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: flatpak-build
-          path: repo
+          path: build-output
 
-      - name: Update HTML paths for GitHub Pages
+      - name: Prepare files for GitHub Pages
         run: |
-          apk add --no-cache rsync sed
-          BUILD_OUTPUT_PATH="${{ github.workspace }}/repo"
-          find $BUILD_OUTPUT_PATH \( -type d -name .git -prune \) -o -type f -print0 | \
-            xargs -0 sed -i \
-              -e "s#href=\"\/#href=\"${{ steps.deployment.outputs.page_url }}/#g" \
-              -e "s#src=\"\/#src=\"${{ steps.deployment.outputs.page_url }}/#g"
+          sudo apt-get update && sudo apt-get install -y rsync
           mkdir -p public
-          rsync -av --delete --exclude='.git' $BUILD_OUTPUT_PATH/ public/
+          rsync -av --delete --exclude='.git' build-output/repo/ public/
 
       - name: Upload pages artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v3
         with:
           path: public
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
