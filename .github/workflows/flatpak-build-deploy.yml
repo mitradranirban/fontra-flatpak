@@ -54,6 +54,76 @@ jobs:
           branch: "update-sources"
           base: ${{ github.ref }}
 
+    update-release:
+    name: Update to Latest FontraPak Release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get latest release info
+        id: latest-release
+        run: |
+          # Fetch latest release info from fontra-pak
+          RELEASE_DATA=$(curl -s https://api.github.com/repos/fontra/fontra-pak/releases/latest)
+          VERSION=$(echo "$RELEASE_DATA" | jq -r .tag_name)
+          ASSET_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name=="FontraPakUbuntu.tgz") | .browser_download_url')
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "asset_url=$ASSET_URL" >> $GITHUB_OUTPUT
+          echo "Latest version: $VERSION"
+          echo "Asset URL: $ASSET_URL"
+      
+      - name: Download and calculate SHA256
+        id: calculate-sha
+        run: |
+          # Download the asset
+          curl -L -o FontraPakUbuntu.tgz "${{ steps.latest-release.outputs.asset_url }}"
+          
+          # Calculate SHA256
+          SHA256=$(sha256sum FontraPakUbuntu.tgz | awk '{print $1}')
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "SHA256: $SHA256"
+          
+          rm FontraPakUbuntu.tgz
+      
+      - name: Update manifest file
+        run: |
+          VERSION="${{ steps.latest-release.outputs.version }}"
+          SHA256="${{ steps.calculate-sha.outputs.sha256 }}"
+          
+          # Update URL in manifest
+          sed -i "s|url: https://github.com/fontra/fontra-pak/releases/download/[^/]*/FontraPakUbuntu.tgz|url: https://github.com/fontra/fontra-pak/releases/download/${VERSION}/FontraPakUbuntu.tgz|" xyz.fontra.FontraPak.yml
+          
+          # Update SHA256 in manifest
+          sed -i "s|sha256: .*|sha256: ${SHA256}|" xyz.fontra.FontraPak.yml
+      
+      - name: Update metainfo.xml with new release
+        run: |
+          VERSION="${{ steps.latest-release.outputs.version }}"
+          # Remove 'v' prefix if present
+          VERSION_CLEAN=$(echo $VERSION | sed 's/^v//')
+          DATE=$(date +%Y-%m-%d)
+          
+          # Insert new release entry after <releases> tag
+          sed -i "/<releases>/a\    <release version=\"${VERSION_CLEAN}\" date=\"${DATE}\"/>" xyz.fontra.FontraPak.metainfo.xml
+      
+      - name: Commit and push changes
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git add xyz.fontra.FontraPak.yml xyz.fontra.FontraPak.metainfo.xml
+          git commit -m "chore: update to FontraPak ${{ steps.latest-release.outputs.version }}"
+          git push
+
   flatpak:
     name: Build Flatpak
     runs-on: ubuntu-latest

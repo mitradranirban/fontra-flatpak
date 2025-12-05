@@ -1,2 +1,4 @@
 # fontra-flatpak
-Fontra Pak for flatpak
+Fontra Pak  flatpak repository
+
+![Fontrapak screenshot](screenshot1.png)
