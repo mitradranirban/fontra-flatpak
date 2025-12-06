@@ -129,6 +129,16 @@ jobs:
           upload-artifact: true
           cache-key: flatpak-builder-${{ github.sha }}
 
+      - name: Generate repository summary
+        run: |
+          flatpak build-update-repo --gpg-sign=${{ steps.import_gpg.outputs.keyid }} --generate-static-deltas --prune repo/
+
+      - name: Upload OSTree repository
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-repo
+          path: repo/    
+
   pages:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
@@ -144,16 +154,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download artifacts
+      - name: Download OSTree repository
         uses: actions/download-artifact@v4
         with:
-          name: xyz.fontra.FontraPak-x86_64.flatpak
-          path: build-output
+          name: flatpak-repo
+          path: repo
 
       - name: Prepare files for GitHub Pages
         run: |
           mkdir -p public
-          cp -r build-output/* public/
+          cp -r repo/* public/
+          cp ${{ env.APP_ID }}.flatpakref public/ || true
 
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
