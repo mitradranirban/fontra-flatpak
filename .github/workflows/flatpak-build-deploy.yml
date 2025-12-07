@@ -78,6 +78,10 @@ jobs:
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
           trust_level: 5
 
+      - name: Export GPG public key
+        run: |
+          gpg --export --armor ${{ steps.import_gpg.outputs.keyid }} > repo.gpg
+
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           manifest-path: ${{ env.APP_ID }}.yml
@@ -90,6 +94,10 @@ jobs:
           repository-name: repo
           repository-url: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
           verbose: true
+
+      - name: Import GPG key into repository
+        run: |
+          flatpak build-update-repo --gpg-import=repo.gpg repo/
 
       - name: Generate repository summary
         run: |
