@@ -18,13 +18,11 @@
   <url type="homepage">https://github.com/fontra/fontrapak</url>
   <categories>
     <category>Graphics</category>
-    <category>Development</category> 
+    <category>Development</category>
   </categories>
   <launchable type="desktop-id">xyz.fontra.FontraPak.desktop</launchable>
   <releases>
     <release version="2025.12.2" date="2025-12-07"/>
-    <release version="2025.12.2" date="2025-12-06"/>
-    <release version="2025.12.2" date="2025-12-05"/>
     <release version="2025.12.0" date="2025-12-03"/>
   </releases>
   <content_rating type="oars-1.1"/>
@@ -37,4 +35,3 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
 </component>
-
