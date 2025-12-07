@@ -191,7 +191,7 @@ jobs:
           name: flatpak-repo
           path: repo/
 
-  pages:
+   pages:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     needs: flatpak
@@ -203,3 +203,25 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download OSTree repo
+        uses: actions/download-artifact@v4
+        with:
+          name: flatpak-repo
+          path: repo
+
+      - name: Create public directory
+        run: |
+          mkdir -p public
+          cp -r repo/* public/
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
