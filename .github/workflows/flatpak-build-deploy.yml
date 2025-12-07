@@ -92,7 +92,6 @@ jobs:
           upload-artifact: true
           cache-key: flatpak-builder-${{ matrix.variant.arch }}-${{ github.sha }}
           repository-name: repo
-          repository-url: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
           verbose: true
 
       - name: Import GPG key into repository
