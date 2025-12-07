@@ -1,0 +1,108 @@
+generate-dependencies:
+    name: Generate Python Dependencies
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+      options: --privileged
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Flatpak SDK runtime
+        run: |
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y flathub org.freedesktop.Sdk//25.08
+      - name: Install flatpak-pip-generator
+        run: |
+          pip3 install flatpak-pip-generator
+
+      - name: Generate filtered requirements.txt
+        run: |
+          grep -v "^git+" requirements.txt | grep -v "PyQt" > requirements-filtered.txt
+          echo "Filtered requirements:"
+          cat requirements-filtered.txt
+
+      - name: Generate pypi-dependencies.json
+        run: |
+          flatpak_pip_generator --runtime='org.freedesktop.Sdk//25.08' \
+            --requirements-file=requirements-filtered.txt \
+            --output=pypi-dependencies
+            -- ignore-errors
+
+      - name: Fetch git dependency commit hashes
+        id: git-commits
+        run: |
+          echo "Fetching latest commit hashes for git dependencies..."
+
+          FONTRA_COMMIT=$(git ls-remote https://github.com/fontra/fontra.git HEAD | cut -f1)
+          echo "fontra_commit=$FONTRA_COMMIT" >> $GITHUB_OUTPUT
+
+          FONTRA_COMPILE_COMMIT=$(git ls-remote https://github.com/fontra/fontra-compile.git HEAD | cut -f1)
+          echo "fontra_compile_commit=$FONTRA_COMPILE_COMMIT" >> $GITHUB_OUTPUT
+
+          FONTRA_RCJK_COMMIT=$(git ls-remote https://github.com/fontra/fontra-rcjk.git HEAD | cut -f1)
+          echo "fontra_rcjk_commit=$FONTRA_RCJK_COMMIT" >> $GITHUB_OUTPUT
+
+          FONTRA_GLYPHS_COMMIT=$(git ls-remote https://github.com/fontra/fontra-glyphs.git HEAD | cut -f1)
+          echo "fontra_glyphs_commit=$FONTRA_GLYPHS_COMMIT" >> $GITHUB_OUTPUT
+
+          DELOCATE_COMMIT=$(git ls-remote https://github.com/justvanrossum/delocate.git HEAD | cut -f1)
+          echo "delocate_commit=$DELOCATE_COMMIT" >> $GITHUB_OUTPUT
+
+          FONTRAPAK_COMMIT=$(git ls-remote https://github.com/fontra/fontra-pak.git HEAD | cut -f1)
+          echo "fontrapak_commit=$FONTRAPAK_COMMIT" >> $GITHUB_OUTPUT
+
+          FONTRAPAK_TAG=
+
+      - name: Update manifest with git commit hashes
+        env:
+          FONTRA_COMMIT: ${{ steps.git-commits.outputs.fontra_commit }}
+          FONTRA_COMPILE_COMMIT: ${{ steps.git-commits.outputs.fontra_compile_commit }}
+          FONTRA_RCJK_COMMIT: ${{ steps.git-commits.outputs.fontra_rcjk_commit }}
+          FONTRA_GLYPHS_COMMIT: ${{ steps.git-commits.outputs.fontra_glyphs_commit }}
+          DELOCATE_COMMIT: ${{ steps.git-commits.outputs.delocate_commit }}
+        run: |
+          python3 << 'EOF'
+          import os
+          import re
+
+          manifest_file = f"{os.environ['APP_ID']}.yml"
+
+          with open(manifest_file, 'r') as f:
+              content = f.read()
+
+          # Update commits for git dependencies
+          repos = {
+              'https://github.com/fontra/fontra.git': os.environ['FONTRA_COMMIT'],
+              'https://github.com/fontra/fontra-compile.git': os.environ['FONTRA_COMPILE_COMMIT'],
+              'https://github.com/fontra/fontra-rcjk.git': os.environ['FONTRA_RCJK_COMMIT'],
+              'https://github.com/fontra/fontra-glyphs.git': os.environ['FONTRA_GLYPHS_COMMIT'],
+              'https://github.com/justvanrossum/delocate.git': os.environ['DELOCATE_COMMIT'],
+          }
+
+          for repo_url, commit_hash in repos.items():
+              # Pattern to match url and optionally existing commit
+              pattern = rf'(url:\s+{re.escape(repo_url)})\s*\n(\s+commit:\s+\w+)?'
+              replacement = rf'\1\n        commit: {commit_hash}'
+              content = re.sub(pattern, replacement, content)
+
+          with open(manifest_file, 'w') as f:
+              f.write(content)
+          EOF
+
+      - name: Commit generated files
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add pypi-dependencies.json requirements-filtered.txt ${{ env.APP_ID }}.yml || true
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update Python dependencies and git commit hashes"
+            git push
+          fi
