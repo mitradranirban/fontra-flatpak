@@ -141,7 +141,28 @@ jobs:
         with:
           name: flatpak-repo-aarch64
           path: repo-aarch64
-      
+      - name: Verify downloaded repositories
+        run: |
+          echo "Testing x86_64 repo..."
+          ostree refs --repo=repo-x86_64 || echo "ERROR: x86_64 not a valid repo"
+          echo "Testing aarch64 repo..."
+          ostree refs --repo=repo-aarch64 || echo "ERROR: aarch64 not a valid repo"
+      - name: Debug downloaded artifacts
+        run: |
+          echo "=== Structure of repo-x86_64 ==="
+          ls -laR repo-x86_64/ | head -50
+          echo ""
+          echo "=== Structure of repo-aarch64 ==="
+          ls -laR repo-aarch64/ | head -50
+          echo ""
+          echo "=== Checking for OSTree repository files ==="
+          [ -f "repo-x86_64/config" ] && echo "✓ x86_64 has config" || echo "✗ x86_64 missing config"
+          [ -d "repo-x86_64/objects" ] && echo "✓ x86_64 has objects/" || echo "✗ x86_64 missing objects/"
+          [ -d "repo-x86_64/refs" ] && echo "✓ x86_64 has refs/" || echo "✗ x86_64 missing refs/"
+          [ -f "repo-aarch64/config" ] && echo "✓ aarch64 has config" || echo "✗ aarch64 missing config"
+          [ -d "repo-aarch64/objects" ] && echo "✓ aarch64 has objects/" || echo "✗ aarch64 missing objects/"
+          [ -d "repo-aarch64/refs" ] && echo "✓ aarch64 has refs/" || echo "✗ aarch64 missing refs/"
+
       # Install flatpak tools
       - name: Install flatpak
         run: |
