@@ -164,9 +164,7 @@ jobs:
             echo "Copying aarch64 repository..."
             cp -rn repo-aarch64/* repo/ || true
           fi
-    
-    # Rebuild repository metadata
-        flatpak build-update-repo --generate-static-deltas repo/
+          flatpak build-update-repo --generate-static-deltas repo/
       
       - name: Create public directory
         run: |
