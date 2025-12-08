@@ -169,31 +169,45 @@ jobs:
           [ -d "repo-aarch64/objects" ] && echo "✓ aarch64 has objects/" || echo "✗ aarch64 missing objects/"
           [ -d "repo-aarch64/refs" ] && echo "✓ aarch64 has refs/" || echo "✗ aarch64 missing refs/"
 
-      - name: Merge multi-arch repositories
-        run: |
-          # Initialize the target repository
-          ostree init --mode=archive-z2 --repo=repo
+          - name: Merge multi-arch repositories
+            run: |
+              # Initialize the target repository
+              ostree init --mode=archive-z2 --repo=repo
 
-          # Pull all refs from x86_64 repository
-          echo "Merging x86_64 repository..."
-          if [ -d "repo-x86_64/refs" ]; then
-            for ref in $(ostree --repo=repo-x86_64 refs 2>/dev/null); do
-              echo "  Pulling $ref"
-              ostree --repo=repo pull-local repo-x86_64 "$ref"
-            done
-          fi
+              echo "=== Listing refs in x86_64 repository ==="
+              ostree --repo=repo-x86_64 refs
+              echo ""
 
-          # Pull all refs from aarch64 repository
-          echo "Merging aarch64 repository..."
-          if [ -d "repo-aarch64/refs" ]; then
-            for ref in $(ostree --repo=repo-aarch64 refs 2>/dev/null); do
-              echo "  Pulling $ref"
-              ostree --repo=repo pull-local repo-aarch64 "$ref"
-            done
-          fi
+              echo "=== Listing refs in aarch64 repository ==="
+              ostree --repo=repo-aarch64 refs
+              echo ""
 
-          # Update repository metadata for both architectures
-          flatpak build-update-repo --generate-static-deltas repo/
+              # Pull all refs from x86_64 repository
+              echo "=== Merging x86_64 repository ==="
+              if [ -d "repo-x86_64/refs" ]; then
+                for ref in $(ostree --repo=repo-x86_64 refs 2>/dev/null); do
+                  echo "  Pulling $ref"
+                  ostree --repo=repo pull-local repo-x86_64 "$ref"
+                done
+              fi
+
+              # Pull all refs from aarch64 repository
+              echo "=== Merging aarch64 repository ==="
+              if [ -d "repo-aarch64/refs" ]; then
+                for ref in $(ostree --repo=repo-aarch64 refs 2>/dev/null); do
+                  echo "  Pulling $ref"
+                  ostree --repo=repo pull-local repo-aarch64 "$ref"
+                done
+              fi
+
+              echo ""
+              echo "=== Verifying merged repository ==="
+              ostree --repo=repo refs
+              echo ""
+
+              # Update repository metadata for both architectures
+              echo "=== Updating repository summary ==="
+              flatpak build-update-repo --generate-static-deltas repo/
 
 
       - name: Create public directory
