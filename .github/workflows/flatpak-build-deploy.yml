@@ -141,6 +141,14 @@ jobs:
           name: flatpak-repo-aarch64
           path: repo-aarch64
 
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          trust_level: 5
+
       - name: Install flatpak
         run: |
           sudo apt-get update
@@ -164,8 +172,8 @@ jobs:
             ostree --repo=repo pull-local repo-aarch64 "$ref"
           done
 
-          ostree --repo=repo refs
-          flatpak build-update-repo --generate-static-deltas repo/
+          echo "=== Signing with GPG key ID: ${{ steps.import_gpg.outputs.keyid }} ==="
+          flatpak build-update-repo --gpg-sign=${{ steps.import_gpg.outputs.keyid }} --generate-static-deltas repo/
 
 
       - name: Create public directory
