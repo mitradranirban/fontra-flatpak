@@ -6,6 +6,10 @@ base: com.riverbankcomputing.PyQt.BaseApp
 base-version: '6.9'
 command: fontrapak
 
+build-options:
+  build-args:
+    - --share=network
+
 finish-args:
   - --share=ipc
   - --socket=x11
