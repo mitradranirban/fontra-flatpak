@@ -128,14 +128,20 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      
+
+
+      # Install flatpak tools
+      - name: Install flatpak
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak ostree
       # Download both architecture repositories
       - name: Download x86_64 repo
         uses: actions/download-artifact@v4
         with:
           name: flatpak-repo-x86_64
           path: repo-x86_64
-      
+
       - name: Download aarch64 repo
         uses: actions/download-artifact@v4
         with:
@@ -163,17 +169,11 @@ jobs:
           [ -d "repo-aarch64/objects" ] && echo "✓ aarch64 has objects/" || echo "✗ aarch64 missing objects/"
           [ -d "repo-aarch64/refs" ] && echo "✓ aarch64 has refs/" || echo "✗ aarch64 missing refs/"
 
-      # Install flatpak tools
-      - name: Install flatpak
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak ostree
-
       - name: Merge multi-arch repositories
         run: |
           # Initialize the target repository
           ostree init --mode=archive-z2 --repo=repo
-  
+
           # Pull all refs from x86_64 repository
           echo "Merging x86_64 repository..."
           if [ -d "repo-x86_64/refs" ]; then
@@ -182,7 +182,7 @@ jobs:
               ostree --repo=repo pull-local repo-x86_64 "$ref"
             done
           fi
- 
+
           # Pull all refs from aarch64 repository
           echo "Merging aarch64 repository..."
           if [ -d "repo-aarch64/refs" ]; then
