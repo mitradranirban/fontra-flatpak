@@ -5,10 +5,17 @@ sdk: org.freedesktop.Sdk
 base: com.riverbankcomputing.PyQt.BaseApp
 base-version: '6.9'
 command: fontrapak
+# Add Node.js SDK extension
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node22
 
 build-options:
+  append-path: /usr/lib/sdk/node22/bin
   build-args:
     - --share=network
+  env:
+    npm_config_cache: /run/build/fontra-git-dependencies/flatpak-node/npm-cache
+
 
 finish-args:
   - --share=ipc
