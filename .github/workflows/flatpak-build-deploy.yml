@@ -166,7 +166,7 @@ jobs:
           fi
     
     # Rebuild repository metadata
-    flatpak build-update-repo --generate-static-deltas repo/
+        flatpak build-update-repo --generate-static-deltas repo/
       
       - name: Create public directory
         run: |
