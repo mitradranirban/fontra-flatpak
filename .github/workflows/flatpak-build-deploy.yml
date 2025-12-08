@@ -148,24 +148,30 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flatpak ostree
 
-      # Merge repositories
       - name: Merge multi-arch repositories
         run: |
+          # Initialize the target repository
           mkdir -p repo
+          ostree init --mode=archive-z2 --repo=repo
           
-          # Copy x86_64 repository
-          if [ -d "repo-x86_64" ]; then
+          # Copy x86_64 repository objects
+          if [ -d "repo-x86_64/objects" ]; then
             echo "Copying x86_64 repository..."
-            cp -r repo-x86_64/* repo/ || true
+            cp -r repo-x86_64/objects/* repo/objects/ 2>/dev/null || true
+            cp -r repo-x86_64/refs/* repo/refs/ 2>/dev/null || true
+            [ -d "repo-x86_64/deltas" ] && cp -r repo-x86_64/deltas/* repo/deltas/ 2>/dev/null || true
           fi
           
-          # Copy aarch64 repository (will merge with x86_64)
-          if [ -d "repo-aarch64" ]; then
+          # Copy aarch64 repository objects
+          if [ -d "repo-aarch64/objects" ]; then
             echo "Copying aarch64 repository..."
-            cp -rn repo-aarch64/* repo/ || true
+            cp -rn repo-aarch64/objects/* repo/objects/ 2>/dev/null || true
+            cp -rn repo-aarch64/refs/* repo/refs/ 2>/dev/null || true
+            [ -d "repo-aarch64/deltas" ] && cp -rn repo-aarch64/deltas/* repo/deltas/ 2>/dev/null || true
           fi
+
           flatpak build-update-repo --generate-static-deltas repo/
-      
+
       - name: Create public directory
         run: |
           mkdir -p public
