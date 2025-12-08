@@ -115,68 +115,68 @@ jobs:
           path: repo/
 
   pages:
-  name: Deploy to GitHub Pages
-  runs-on: ubuntu-latest
-  needs: flatpak
-  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-  permissions:
-    contents: read
-    pages: write
-    id-token: write
-  environment:
-    name: github-pages
-    url: ${{ steps.deployment.outputs.page_url }}
-  steps:
-    - uses: actions/checkout@v4
-    
-    # Download both architecture repositories
-    - name: Download x86_64 repo
-      uses: actions/download-artifact@v4
-      with:
-        name: flatpak-repo-x86_64
-        path: repo-x86_64
-    
-    - name: Download aarch64 repo
-      uses: actions/download-artifact@v4
-      with:
-        name: flatpak-repo-aarch64
-        path: repo-aarch64
-    
-    # Install flatpak tools
-    - name: Install flatpak
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y flatpak ostree
-    
-    # Merge repositories
-    - name: Merge multi-arch repositories
-      run: |
-        mkdir -p repo
-        
-        # Pull all refs from x86_64 repo
-        for ref in $(ostree --repo=repo-x86_64 refs); do
-          ostree --repo=repo pull-local repo-x86_64 "$ref"
-        done
-        
-        # Pull all refs from aarch64 repo
-        for ref in $(ostree --repo=repo-aarch64 refs); do
-          ostree --repo=repo pull-local repo-aarch64 "$ref"
-        done
-        
-        # Update repository summary with both architectures
-        flatpak build-update-repo --generate-static-deltas repo/
-    
-    - name: Create public directory
-      run: |
-        mkdir -p public
-        cp -r repo/* public/
-        cp ${{ env.APP_ID }}.flatpakref public/
-    
-    - name: Upload pages artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: public
-    
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: flatpak
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Download both architecture repositories
+      - name: Download x86_64 repo
+        uses: actions/download-artifact@v4
+        with:
+          name: flatpak-repo-x86_64
+          path: repo-x86_64
+      
+      - name: Download aarch64 repo
+        uses: actions/download-artifact@v4
+        with:
+          name: flatpak-repo-aarch64
+          path: repo-aarch64
+      
+      # Install flatpak tools
+      - name: Install flatpak
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak ostree
+
+      # Merge repositories
+      - name: Merge multi-arch repositories
+        run: |
+          mkdir -p repo
+  
+          # Pull all refs from x86_64 repo
+          for ref in $(ostree --repo=repo-x86_64 refs); do
+            ostree --repo=repo pull-local repo-x86_64 "$ref"
+          done
+
+          # Pull all refs from aarch64 repo
+          for ref in $(ostree --repo=repo-aarch64 refs); do
+            ostree --repo=repo pull-local repo-aarch64 "$ref"
+          done
+
+          # Update repository summary with both architectures
+          flatpak build-update-repo --generate-static-deltas repo/
+      
+      - name: Create public directory
+        run: |
+          mkdir -p public
+          cp -r repo/* public/
+          cp ${{ env.APP_ID }}.flatpakref public/
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
