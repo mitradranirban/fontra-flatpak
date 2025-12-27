@@ -1,9 +1,6 @@
 name: Build Application
 
 on:
-  schedule:
-    # * is a special character in YAML so you have to quote this string
-    - cron: "21 1 * * 1"
   workflow_dispatch: # allow manual trigger
   push:
     tags:
